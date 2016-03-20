@@ -2,6 +2,7 @@
 
 const express = require('express');
 const sqlite3 = require('sqlite3');
+const moment = require('moment');
 
 const PORT = process.env.PORT || 3000;
 
@@ -32,13 +33,33 @@ app.get('/invoices-by-country', (req, res) => {
 
 
 // How many Invoices were there in 2009 and 2011? What are the respective total sales for each of those years?
+//req.query = { filter: { year: '2009,2011' } }
 app.get('/salesPerYear', (req, res) => {
+
+    const filterYears = req.query && req.query.filter.year.split(',').map(y => +y);
+
+    let having = '';
+
+    if (req.query.filter) {
+        having = 'HAVING';
+
+        req.query.filter.year
+                .split(',')
+                .map(y => +y)
+                .forEach(y => {
+                having += ` year = "${y}" OR`;
+            });
+
+        having = having.substring(0, having.length - 3);
+    }
+
     db.all(`
-        SELECT  COUNT(*) AS invoices,
-                SUM(Total) as total,
-                substr(InvoiceDate, 1, 4) as year
-        FROM    Invoice
-        GROUP BY year`,
+        SELECT count(*) as invoices,
+               sum(Total) as total,
+               strftime('%Y', InvoiceDate) as year
+        FROM   Invoice
+        GROUP BY year
+        ${having}`,
             (err, data) => {
                 if(err) throw err;
 
